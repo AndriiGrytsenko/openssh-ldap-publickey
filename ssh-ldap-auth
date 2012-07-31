@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+
+use Net::LDAP;
+use strict;
+
+my $configuration_file = '/etc/ldap.conf';
+
+sub help {
+    print "Example:\n";
+    print "\tssh-ldap-auth username\n";
+    print "If success if will get something like:\n";
+    print "\t".'ssh-rsa some_long_long_key user@hostname'."\n";
+    exit;
+}
+
+sub parse_config {
+    my ($config_file) = @_;
+    
+    my $conf;
+    open(CONF, "<$config_file");
+    
+    while(<CONF>) {
+	next if ( $_ =~ /^#/ or $_ =~ /^\s+$/ );
+	my $line = lc($_);
+	# remove leading whitespace
+	$line =~ s/^\s+//;
+	# remove trailing whitespace
+	$line =~ s/\s+$//;
+	my ($key,$val) = split(/\s+/, $line);
+	$conf->{$key}=$val;
+    }
+    
+    close(CONF);
+    return($conf);
+}
+
+help() if ( $ARGV[0] eq '-h' or $ARGV[0] eq '--help' or !defined($ARGV[0]) );
+
+my $conf = parse_config($configuration_file);
+
+my $ldap = Net::LDAP->new( $conf->{'uri'} ) or die "$@";
+my $mesg = $ldap->bind ;
+my $user = $ARGV[0];
+
+my $final_filter = "&(".$conf->{'pam_filter'}."(uid=".$user."))";
+
+$mesg = $ldap->search( 
+			base   => "$conf->{'nss_base_passwd'}",
+			filter => "$final_filter",
+			attrs => ['sshPublicKey']
+                    );
+
+$mesg->code && die $mesg->error;
+
+my $entry;
+foreach $entry ($mesg->entries) { 
+    my $keys = $entry->{asn}->{attributes}->[0]->{vals};
+    foreach my $key (@$keys){
+        print "$key\n";
+    }
+}
+
+$mesg = $ldap->unbind;
+
