@@ -1,4 +1,4 @@
-Summary: Wrapper for ssh. To store keys inside ldap.
+Summary: Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 Name: openssh-ldap-publickey
 Version: 0.1
 Release: 1
@@ -22,9 +22,9 @@ rm -rf %{buildroot}
 
 install -d -m 0755 %{buildroot}/usr/bin/
 install -d -m 0755 %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
-install -m 0755 ssh-ldap-auth %{buildroot}/usr/bin/
+install -m 0755 openssh-ldap-publickey %{buildroot}/usr/bin/
 install -m 0644 openssh-lpk-openldap.schema %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
-install -m 0644 HOWTO %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
+install -m 0644 HOWTO.md %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
 install -m 0644 openssh-ldap-publickey.spec %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
 
 
@@ -34,9 +34,9 @@ rm -rf %{buildroot}
 %files
 %dir /usr/share/doc/%{name}-%{version}-%{release}
 %defattr(-,root,root,-)
-/usr/bin/ssh-ldap-auth
+/usr/bin/openssh-ldap-publickey
 /usr/share/doc/%{name}-%{version}-%{release}/openssh-lpk-openldap.schema
-/usr/share/doc/%{name}-%{version}-%{release}/HOWTO
+/usr/share/doc/%{name}-%{version}-%{release}/HOWTO.md
 /usr/share/doc/%{name}-%{version}-%{release}/openssh-ldap-publickey.spec
 
 %changelog
