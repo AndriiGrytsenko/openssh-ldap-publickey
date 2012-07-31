@@ -6,7 +6,7 @@ Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 ## How it works? 
 
 You created entry for user inside OpenLdap and apply attribut `'sshPublicKey'` with **PublicKey** to this user. 
-When user try login into the system OpenSSH run */usr/bin/ssh-ldap-auth script* which in its turn make request to OpenLdap asking for sshPublicKey value.
+When user try login into the system OpenSSH run */usr/bin/ssh-ldap-auth script* which in its turn make request to OpenLdap asking for **sshPublicKey** value.
 ssh-ldap-auth script take ldap configuration from */etc/ldap.conf* INCLUDING 'pam_filter' value and takes it into account.
 
 ## How to setup step by step? 
