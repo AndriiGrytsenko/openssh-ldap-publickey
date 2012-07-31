@@ -17,15 +17,15 @@ To install ldap key authentication support take next steps:
 1. Add new ldap schema from */usr/share/doc/openssh-ldap-{version}/openssh-lpk-openldap.schema* to your ldap server.
 2. Change your ldap.conf add(in case you want take advantage of host based authorization):
 `pam_filter |(host=test-server.example.com)(host=\*)`
-3. Add next attributes into user entry:
-**Host: test-server.example.com**
-`sshPublicKey: ssh-rsa some_long_long_key user@hostname`
+3. Add next attributes into user entry:  
+**Host: test-server.example.com**  
+**sshPublicKey: ssh-rsa some_long_long_key user@hostname**
 
 ##### OpenSSH side:
 4. Setup openssh with **AuthorizedKeysCommand** support(openssh-server > 5.3)
-5. Change **sshd_config**:
-`AuthorizedKeysCommand /usr/bin/ssh-ldap-auth`
-`AuthorizedKeysCommandRunAs root`
-if you want store key **ONLY** in ldap change next lines
-`#AuthorizedKeysFile     .ssh/authorized_keys`
-`uthorizedKeysFile      /dev/null`
+5. Change **sshd_config**:  
+`AuthorizedKeysCommand /usr/bin/ssh-ldap-auth`  
+`AuthorizedKeysCommandRunAs root`  
+if you want store key **ONLY** in ldap change next lines  
+`#AuthorizedKeysFile     .ssh/authorized_keys`  
+`AuthorizedKeysFile      /dev/null`  
