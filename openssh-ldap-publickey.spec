@@ -24,7 +24,7 @@ install -d -m 0755 %{buildroot}/usr/bin/
 install -d -m 0755 %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
 install -m 0755 openssh-ldap-publickey %{buildroot}/usr/bin/
 install -m 0644 openssh-lpk-openldap.schema %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
-install -m 0644 HOWTO.md %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
+install -m 0644 README.md %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
 install -m 0644 openssh-ldap-publickey.spec %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
 
 

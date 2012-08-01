@@ -33,3 +33,4 @@ if you want store key **ONLY** in ldap change next lines
 ##### Requirements
 1. Perl  
 2. Perl module Net::LDAP  
+3. Openssh with **AuthorizedKeysCommand** support(openssh-server > 5.3)
