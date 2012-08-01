@@ -21,7 +21,7 @@ To implement ldap key authentication support take next steps:
 3. Change your */etc/ldap.conf* add(in case you want take advantage of host based authorization):
 `pam_filter |(host=test-server.example.com)(host=\*)`
 4. Add next attributes into user entry:  
-**Host: test-server.example.com** <- in case of hast-based auth  
+**Host: test-server.example.com** <- in case of host-based auth  
 **sshPublicKey: ssh-rsa some_public_key_here user@hostname** <- put here your public key from ~/.ssh/id_{rsa,dsa}.pub
 **sshPublicKey: ssh-rsa some_ohter_public_key_here user2@hostname2** <- there can be several sshPublicKey entries in event of you want connect from different computers
 
