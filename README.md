@@ -35,6 +35,14 @@ if you want store key **ONLY** in ldap, change next lines
 `AuthorizedKeysFile      /dev/null`  
 
 
+#### Building RPM:
+1. Download **misc/openssh-ldap-publickey.spec** to **$rpmbuild/SPECS**
+2. Download all source into **$rpmbuild/SOURCE**.
+you can do it automatically running:   
+`cd $rpmbuild/SPECS && spectool -gf  -C ../SOURCES/ openssh-ldap-publickey.spec`
+3. Build package:    
+`rpmbuild -bb openssh-ldap-publickey.spec`
+
 #### Requirements:
 1. **Perl**  
 2. Perl module **Net::LDAP**  
