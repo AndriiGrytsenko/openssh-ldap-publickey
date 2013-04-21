@@ -5,9 +5,11 @@ Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 
 ## How it works? 
 
-You created entry for user inside OpenLdap and add attribut `'sshPublicKey'` with **PublicKey** to this user. 
-When user try login through the ssh, OpenSSH calls **/usr/bin/openssh-ldap-publickey script** which in its turn make request to OpenLdap asking for **sshPublicKey** value.   
-Ldap connection configuration used by **openssh-ldap-publickey** is taking from **/etc/ldap.conf** file. Also keep in mind that **openssh-ldap-publickey** takes into account **'pam_filter'** value from **/etc/ldap.conf**.
+You create entry for user from OpenLdap and add attribut `'sshPublicKey'` with **PublicKey** to this user. 
+When user try login through the ssh, OpenSSH calls **/usr/bin/openssh-ldap-publickey script** which in its turn makes request to OpenLdap asking for **sshPublicKey** value.   
+
+Ldap connection parameters are used by **openssh-ldap-publickey** is taken from **/etc/ldap.conf** file. 
+Keep in mind that  **'pam_filter'** value from **/etc/ldap.conf** is used by **openssh-ldap-publickey**.
 
 Basically, it looks similar to this scheme   
 ssh-client -> ssh-server -> openssh-ldap-publickey -> openldap server -> openldap server is looking for attribute sshPublicKey inside user's entry in Base DN
@@ -16,9 +18,9 @@ ssh-client -> ssh-server -> openssh-ldap-publickey -> openldap server -> openlda
 To implement ldap key authentication support take next steps:
 ##### OpenLDAP side
 
-1. Your system should be already setup for using ldap authorization
+1. Setup your system to use ldap authorization
 2. Add new ldap schema from */usr/share/doc/openssh-ldap-publickey-{version}/openssh-lpk-openldap.schema* to your ldap server.
-3. Change your */etc/ldap.conf* add(in case you want take advantage of host based authorization):
+3. In case you want take advantage of host based authorization, change your */etc/ldap.conf* adding:
 `pam_filter |(host=test-server.example.com)(host=\*)`
 4. Add next attributes into user entry:  
 **Host: test-server.example.com** <- in case of host-based auth  
