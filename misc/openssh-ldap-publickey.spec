@@ -12,6 +12,7 @@ Source3: https://raw.github.com/AndriiGrytsenko/openssh-ldap-publickey/master/mi
 BuildArch: noarch
 
 Requires: perl-LDAP
+Requires: openssh-server >= 5.3
 
 %description
 Wrapper for ssh. To store keys inside ldap.
