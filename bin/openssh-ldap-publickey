@@ -5,12 +5,20 @@ use POSIX qw(strftime);
 use strict;
 
 my $configuration_file = '/etc/ldap.conf';
+my $version = '0.2'
 
 sub help {
     print "Example:\n";
     print "\tssh-ldap-auth username\n";
     print "If success if will get something like:\n";
     print "\t".'ssh-rsa some_long_long_key user@hostname'."\n";
+    exit;
+}
+
+sub version {
+    my $version = shift;
+    
+    print $version;
     exit;
 }
 
@@ -47,11 +55,13 @@ sub writeToLog {
 }
 
 help() if ( $ARGV[0] eq '-h' or $ARGV[0] eq '--help' or !defined($ARGV[0]) );
+version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' or !defined($ARGV[0]) );
 
 my $conf = parse_config($configuration_file);
 my $debug = $conf->{'openssh_ldap_debug'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || '/tmp/openssh-ldap-publickey.log';
 my $timeout = $conf->{'timeout'} || 10;
+my $nss_base_passwd = $conf->{'nss_base_passwd'} || "ou=People," .$conf->{'base'};
 
 
 writeToLog($logfile, "Connecting to ldap server $conf->{'uri'} with timeout $timeout") if ($debug);
@@ -67,9 +77,9 @@ my $user = $ARGV[0];
 
 my $final_filter = "&(".$conf->{'pam_filter'}.")(uid=".$user.")";
 
-writeToLog($logfile, "Searching key for user $user by filter $final_filter in base $conf->{'nss_base_passwd'}") if ($debug);
+writeToLog($logfile, "Searching key for user $user by filter $final_filter in base $nss_base_passwd") if ($debug);
 $mesg = $ldap->search( 
-			base   => "$conf->{'nss_base_passwd'}",
+			base   => "$nss_base_passwd",
 			filter => "$final_filter",
 			attrs => ['sshPublicKey']
                     );

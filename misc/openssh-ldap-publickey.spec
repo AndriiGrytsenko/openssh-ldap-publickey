@@ -1,7 +1,7 @@
 Summary: Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 Name: openssh-ldap-publickey
-Version: 0.1
-Release: 2
+Version: 0.2
+Release: 1
 License: GPLv3
 Group: Applications/Internet
 Buildroot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -9,6 +9,7 @@ Source0: https://raw.github.com/AndriiGrytsenko/openssh-ldap-publickey/master/bi
 Source1: https://raw.github.com/AndriiGrytsenko/openssh-ldap-publickey/master/misc/openssh-lpk-openldap.schema
 Source2: https://raw.github.com/AndriiGrytsenko/openssh-ldap-publickey/master/README.md
 Source3: https://raw.github.com/AndriiGrytsenko/openssh-ldap-publickey/master/misc/openssh-ldap-publickey.spec
+Source4: https://raw.github.com/AndriiGrytsenko/openssh-ldap-publickey/master/man/openssh-ldap-publickey.8
 BuildArch: noarch
 
 Requires: perl-LDAP
@@ -27,11 +28,13 @@ rm -rf %{buildroot}
 
 install -d -m 0755 %{buildroot}/usr/bin/
 install -d -m 0755 %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
+install -d -m 0755 %{buildroot}/%_mandir/man8/
 install -m 0755 %{SOURCE0} %{buildroot}/usr/bin/
 install -m 0644 %{SOURCE1} %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
 install -m 0644 %{SOURCE2} %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
 install -m 0644 %{SOURCE3} %{buildroot}/usr/share/doc/%{name}-%{version}-%{release}
-
+install -m 0644 %{SOURCE4} %{buildroot}/%_mandir/man8/
+gzip %{buildroot}/%_mandir/man8/openssh-ldap-publickey.8
 
 %clean
 rm -rf %{buildroot}
@@ -40,11 +43,19 @@ rm -rf %{buildroot}
 %dir /usr/share/doc/%{name}-%{version}-%{release}
 %defattr(-,root,root,-)
 /usr/bin/openssh-ldap-publickey
-/usr/share/doc/%{name}-%{version}-%{release}/openssh-lpk-openldap.schema
+%doc /usr/share/doc/%{name}-%{version}-%{release}/openssh-lpk-openldap.schema
 /usr/share/doc/%{name}-%{version}-%{release}/README.md
 /usr/share/doc/%{name}-%{version}-%{release}/openssh-ldap-publickey.spec
+%_mandir/man8/openssh-ldap-publickey.8.gz
 
 %changelog
+* Mon May 20 2013 Andrii Grytsenko <andrii.grytsenko@gmail.com> 0.2-1
+- security fix in ldap filter
+- added debug mode
+- added connection timeout parameter
+- defined default nss_base_passwd if not set
+- updated documentation
+- added man page
 * Thu Mar 14 2013 Andrii Grytsenko <andrii.grytsenko@gmail.com> 0.1-2 
 - small changes in spec file
 - small addition to documentation

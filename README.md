@@ -59,7 +59,8 @@ All configuration is read from **/etc/ldap.conf** and currently script uses only
     
 **uri** - uri to ldap     
 **pam_filter** - ldap search filter     
-**nss_base_passwd** - User DN    
+**base** - ldap base dir      
+**nss_base_passwd** - User DN. If not set - "ou=People" + **base**.     
 **timeout** - ldap connection timeout. Default 10.     
 **openssh_ldap_debug** - turn on debug. Default 0.    
 **openssh_ldap_logfile** - logfile using only when debug is on. Default */tmp/openssh-ldap-publickey.log*.     
@@ -67,10 +68,26 @@ All configuration is read from **/etc/ldap.conf** and currently script uses only
  
 For more information about this params refer to man ldap.conf. 
 
+## Known issues
+1. Script fails with error 255    
+    **Symptoms**:   
+    * return code is 255    
+    * In logs:       
+    ```sshd[36009]: error: AuthorizedKeysCommand /etc/ssh/openssh-ldap-publickey returned status 225``
+    * When running from console:       
+    ```No such object at /usr/bin/openssh-ldap-publickey line 77.```      
 
 
-### Issues:
-1. variable **nss_base_passwd** in **ldap.conf** should be set properly to fully qualified path. Example: **ou=People,dc=test,dc=com** (without prefix **?one** or something)
+    ** Cause **:      
+    Variable **nss_base_passwd** in **ldap.conf** is empty or doesn't set explicitly to users DN.     
+      
+    ** Solution **:     
+    Set **nss_base_passwd** explicitly to users DN.     
+    Example: **ou=People,dc=test,dc=com** (without prefix **?one** or something)     
+          
 
+## Where to download RPM package?      
+You can find RPM packages [here](http://andriigrytsenko.net/repo/openssh-ldap-publickey/)
+     
 ### AuthorizedKeysCommand support and CentOS/RHEL 5.x
 Check [this page](http://andriigrytsenko.net/2013/05/authorizedkeyscommand-support-and-centosrhel-5-x/) to see how to configure AuthorizedKeysCommand in CentOS/RHEL 5.x.

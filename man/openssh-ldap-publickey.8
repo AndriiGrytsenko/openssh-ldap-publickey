@@ -1,0 +1,32 @@
+.\" Manpage for ldap-acl-syncer.
+.\" Contact andrii.grytsenko@gmail.com to correct errors or typos.
+.TH openssh-ldap-publickey 8 "20 May 2013" "0.2" "man page"
+.SH NAME
+openssh-ldap-publickey \- Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
+.SH SYNOPSIS
+openssh-ldap-publickey [-hv] [USERNAME]
+.SH DESCRIPTION
+You create entry for user from OpenLdap and add attribut 'sshPublicKey' with PublicKey to this user. When user try login through the ssh, OpenSSH calls /usr/bin/openssh-ldap-publickey script which in its turn makes request to OpenLdap asking for sshPublicKey attribute value.
+
+Ldap connection parameters are used by openssh-ldap-publickey is taken from /etc/ldap.conf file. Keep in mind that 'pam_filter' value from /etc/ldap.conf is used by openssh-ldap-publickey.
+
+Basically, it looks similar to this scheme
+ssh-client -> ssh-server -> openssh-ldap-publickey -> openldap server -> openldap server is looking for attribute sshPublicKey inside user's entry in Base DN
+
+Change should be made in sshd_config:
+
+AuthorizedKeysCommand /usr/bin/openssh-ldap-publickey
+
+AuthorizedKeysCommandRunAs nobody
+
+.SH OPTIONS
+.IP -v
+print version and exit
+.IP "-h"
+print help and exit
+.SH SEE ALSO
+ldap.conf(5), sshd_config(5)
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Andrii Grytsenko (andrii.grytsenko@gmail.com)
