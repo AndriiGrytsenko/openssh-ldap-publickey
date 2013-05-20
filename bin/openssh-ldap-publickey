@@ -42,7 +42,7 @@ my $ldap = Net::LDAP->new( $conf->{'uri'} ) or die "$@";
 my $mesg = $ldap->bind ;
 my $user = $ARGV[0];
 
-my $final_filter = "&(".$conf->{'pam_filter'}."(uid=".$user."))";
+my $final_filter = "&(".$conf->{'pam_filter'}.")(uid=".$user.")";
 
 $mesg = $ldap->search( 
 			base   => "$conf->{'nss_base_passwd'}",
