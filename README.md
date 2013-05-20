@@ -78,10 +78,10 @@ For more information about this params refer to man ldap.conf.
     ```No such object at /usr/bin/openssh-ldap-publickey line 77.```      
 
 
-    ** Cause **:      
+    **Cause**:      
     Variable **nss_base_passwd** in **ldap.conf** is empty or doesn't set explicitly to users DN.     
       
-    ** Solution **:     
+    **Solution**:     
     Set **nss_base_passwd** explicitly to users DN.     
     Example: **ou=People,dc=test,dc=com** (without prefix **?one** or something)     
           
