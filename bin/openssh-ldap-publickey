@@ -5,7 +5,7 @@ use POSIX qw(strftime);
 use strict;
 
 my $configuration_file = '/etc/ldap.conf';
-my $version = '0.2'
+my $version = '0.2';
 
 sub help {
     print "Example:\n";
