@@ -13,6 +13,9 @@ sub help {
     print "Usage: $prog_name <username>\n";
     print "Version: $version\n";
     print "\n";
+    print "\t-h --help\tPrint this help message and exit\n";
+    print "\t-v --version\tPrint the version number and exit\n";
+    print "\n";
     print "Example:\n";
     print "\t". basename($0) ." username\n";
     print "If successful, it will write something like this to stdout:\n";
@@ -23,7 +26,7 @@ sub help {
 sub version {
     my $version = shift;
 
-    print $version;
+    print "$version\n";
     exit;
 }
 
