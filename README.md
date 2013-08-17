@@ -58,15 +58,19 @@ All configuration is read from **/etc/ldap.conf** and currently script uses only
       
     
 **uri** - uri to ldap     
-**pam_filter** - ldap search filter     
+**pam_filter** - ldap search filter(Optional)     
 **base** - ldap base dir      
 **nss_base_passwd** - User DN. If not set - "ou=People" + **base**.     
 **timeout** - ldap connection timeout. Default 10.     
 **openssh_ldap_debug** - turn on debug. Default 0.    
 **openssh_ldap_logfile** - logfile using only when debug is on. Default */tmp/openssh-ldap-publickey.log*.     
-
+**binddn** - bind dn(Optional)     
+**bindpw** - bind dn password(Optional)     
  
 For more information about this params refer to man ldap.conf. 
+
+## Auth support:
+To enable auth set **binddn** and **bindpw** in ldap.conf
 
 ## Known issues
 1. Script fails with error 255    

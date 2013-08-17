@@ -70,20 +70,38 @@ my $debug = $conf->{'openssh_ldap_debug'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || '/tmp/openssh-ldap-publickey.log';
 my $timeout = $conf->{'timeout'} || 10;
 my $nss_base_passwd = $conf->{'nss_base_passwd'} || "ou=People," .$conf->{'base'};
+my ($mesg, $final_filter) ;
 
 
 writeToLog($logfile, "Connecting to ldap server $conf->{'uri'} with timeout $timeout") if ($debug);
+
+if ( ! -e $configuration_file ){
+	writeToLog($logfile, "Configuration file $configuration_file is not exists") if ($debug);
+	print "Configuration file $configuration_file is not exists!\n";
+	exit -1;
+}
+
+
 my $ldap = Net::LDAP->new(
          $conf->{'uri'},
          timeout => $timeout
 ) or die "$@";
 
 
-my $mesg = $ldap->bind or die "$@";
+if ( $conf->{'binddn'} and $conf->{'bindpw'} ) {
+  writeToLog($logfile, "Try to bind with user $conf->{'binddn'}") if ($debug);
+  $ldap->bind( $conf->{'binddn'}, password => $conf->{'bindpw'});
+} else {
+  writeToLog($logfile, "Try an anonymous bind") if ($debug);
+  $ldap->bind or die "$@";
+}
 my $user = $ARGV[0];
 
-
-my $final_filter = "&(".$conf->{'pam_filter'}.")(uid=".$user.")";
+if ( $conf->{'pam_filter'} ){ 
+	$final_filter = "&(".$conf->{'pam_filter'}.")(uid=".$user.")";
+} else {
+	$final_filter = 'cn=*';
+} 
 
 writeToLog($logfile, "Searching key for user $user by filter $final_filter in base $nss_base_passwd") if ($debug);
 $mesg = $ldap->search(
@@ -106,4 +124,5 @@ foreach $entry ($mesg->entries) {
 
 writeToLog($logfile, "Disconnecting") if ($debug);
 $mesg = $ldap->unbind;
+
 
