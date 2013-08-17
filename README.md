@@ -3,7 +3,7 @@ openssh-ldap-publickey
 
 Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 
-## How it works?
+## How does it work?
 
 You create entry for user from OpenLdap and add attribut `'sshPublicKey'` with **PublicKey** to this user.
 When user try login through the ssh, OpenSSH calls **/usr/bin/openssh-ldap-publickey script** which in its turn makes request to OpenLdap asking for **sshPublicKey** attribute value.
@@ -69,7 +69,7 @@ All configuration is read from **/etc/ldap.conf** and currently script uses only
  
 For more information about this params refer to man ldap.conf. 
 
-## Auth support:
+#### Auth support:
 To enable auth set **binddn** and **bindpw** in ldap.conf
 
 ## Known issues
