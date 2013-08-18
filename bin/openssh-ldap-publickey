@@ -6,7 +6,7 @@ use File::Basename;
 use strict;
 
 my $configuration_file = '/etc/ldap.conf';
-my $version = '1.0.4';
+my $version = '0.4.1';
 my $prog_name = basename($0);
 
 sub help {
