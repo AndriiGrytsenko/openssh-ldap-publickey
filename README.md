@@ -54,23 +54,26 @@ if you want store key **ONLY** in ldap, change next lines
 
 ### Configuration:
 
-All configuration is read from **/etc/ldap.conf** and currently script uses only next parameters:
+All configuration is read from **/etc/ldap.conf** and currently script uses only those parameters:
       
     
 **uri** - uri to ldap     
-**pam_filter** - ldap search filter(Optional)     
+**pam_filter** - ldap search filter(*Optional*)     
 **base** - ldap base dir      
 **nss_base_passwd** - User DN. If not set - "ou=People" + **base**.     
-**timeout** - ldap connection timeout. Default 10.     
-**openssh_ldap_debug** - turn on debug. Default 0.    
-**openssh_ldap_logfile** - logfile using only when debug is on. Default */tmp/openssh-ldap-publickey.log*.     
-**binddn** - bind dn(Optional)     
-**bindpw** - bind dn password(Optional)     
+**timeout** - ldap connection timeout. Default 10.         
+**binddn** - bind dn(*Optional*)      
+**bindpw** - bind dn password(*Optional*)      
+**openssh_ldap_loglevel** - log level. By default the logging is turn off.       
+**openssh_ldap_logfile** - logfile using only when debug is on. Default */tmp/openssh-ldap-publickey.log*.      
  
-For more information about this params refer to man ldap.conf. 
+For more information about this params refer to ldap.conf man page. 
 
 #### Auth support:
 To enable auth set **binddn** and **bindpw** in ldap.conf
+
+#### Logging:
+In order to enable logging you have to setup **openssh_ldap_loglevel** and **openssh_ldap_logfile** variables.
 
 ## Known issues
 1. Script fails with error 255    

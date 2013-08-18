@@ -1,6 +1,6 @@
 Summary: Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 Name: openssh-ldap-publickey
-Version: 0.3
+Version: 0.4
 Release: 1
 License: GPLv3
 Group: Applications/Internet
@@ -49,6 +49,8 @@ rm -rf %{buildroot}
 %_mandir/man8/openssh-ldap-publickey.8.gz
 
 %changelog
+* Sat Aug 17 2013 Andrii Grytsenko <andrii.grytsenko@gmail.com> 0.4-1
+- refactoring and changed configuration variable name ( openssh_ldap_debug -> openssh_ldap_loglevel )
 * Fri Aug 16 2013 Andrii Grytsenko <andrii.grytsenko@gmail.com> 0.3-1
 - added auth support
 - added new pam_filter check
