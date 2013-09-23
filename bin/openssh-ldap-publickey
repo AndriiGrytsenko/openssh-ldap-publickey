@@ -87,7 +87,7 @@ version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
 my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
 
 if ( ! -e $configuration_file ){
-	writeToLog('/tmp/openssh-ldap-publickey.log', 1, "Configuration file $configuration_file does not exist");
+	writeToLog($fallback_logfile, 1, "Configuration file $configuration_file does not exist");
 	print "Configuration file $configuration_file does not exist!\n";
 	exit -1;
 }
