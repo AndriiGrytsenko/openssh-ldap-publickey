@@ -7,7 +7,8 @@ use strict;
 use warnings;
 
 my $configuration_file = '/etc/ldap.conf';
-my $version = '0.4.3';
+my $secret_file = '/etc/ldap.secret';
+my $version = '0.4.4';
 my $prog_name = basename($0);
 
 sub help {
@@ -69,6 +70,42 @@ sub parse_config {
     return($conf);
 }
 
+sub parse_secret_file {
+    my $secret_file = shift;
+
+    local(*INPUT, $/);
+    open (INPUT, "<$secret_file");
+    my $secret = <INPUT>;
+    chomp($secret);
+    close(INPUT);
+    return($secret);
+}
+
+sub check_credentials {
+    my $conf = shift;
+    my $secret_file = shift;
+
+    my $secret = undef;
+    if ( -e $secret_file) {
+        $secret = parse_secret_file($secret_file);
+    }
+
+    # When no binddn is found find out if we can find an alternative binddn.
+    unless ( exists($conf->{'binddn'}) && length($conf->{'binddn'}) ) {
+        if ( exists($conf->{'rootbinddn'}) && length($conf->{'rootbinddn'}) ) {
+            $conf->{'binddn'} = $conf->{'rootbinddn'};
+        }
+    }
+
+    # When no bindpw is found find out if we can find an alternative bindpw.
+    unless ( exists($conf->{'bindpw'}) && length($conf->{'bindpw'})) {
+        if (defined($secret) && length($secret)) {
+            $conf->{'bindpw'} = $secret;
+        }
+    }
+    return($conf);
+}
+
 sub writeToLog {
     my ($logfile, $log_level, $message) = @_;
 
@@ -86,19 +123,32 @@ version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
 
 my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
 
-if ( ! -e $configuration_file ){
+if ( ! -e $configuration_file ) {
+	my $error = "Configuration file $configuration_file does not exist";
 	writeToLog($fallback_logfile, 1, "Configuration file $configuration_file does not exist");
-	print "Configuration file $configuration_file does not exist!\n";
-	exit -1;
+	die($error."!\n");
 }
 
 my $conf = parse_config($configuration_file);
+
+# Validate mandatory config settings
+unless (
+	exists($conf->{'base'}) && length($conf->{'base'}) &&
+	exists($conf->{'uri'}) && length($conf->{'uri'})
+) {
+	my $error = "Missing one or more mandatory config settings: base and/or uri";
+	writeToLog($fallback_logfile, 1, $error);
+	die("$error".!"\n");
+}
+
+
 my $log_level = $conf->{'openssh_ldap_loglevel'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
 my $timeout = $conf->{'timeout'} || 10;
 my $nss_base_passwd = $conf->{'nss_base_passwd'} || "ou=People," .$conf->{'base'};
 my $scope = $conf->{'scope'} || undef;
-my ($mesg, $final_filter) ;
+my ($mesg, $final_filter);
+$conf = check_credentials($conf, $secret_file);
 
 writeToLog($logfile, $log_level, "Connecting to ldap server $conf->{'uri'} with timeout $timeout");
 
@@ -107,7 +157,10 @@ my $ldap = Net::LDAP->new(
     timeout => $timeout
 ) or die "$@";
 
-if ( $conf->{'binddn'} and $conf->{'bindpw'} ) {
+if (
+	exists($conf->{'binddn'}) && length($conf->{'binddn'}) &&
+	exists($conf->{'bindpw'})
+) {
     writeToLog($logfile, $log_level, "Try to bind with user $conf->{'binddn'}");
     $ldap->bind(
         $conf->{'binddn'},
@@ -115,7 +168,7 @@ if ( $conf->{'binddn'} and $conf->{'bindpw'} ) {
     );
 } else {
     writeToLog($logfile, $log_level, "Try an anonymous bind");
-    $ldap->bind or die "$@";
+    $ldap->bind or die("$@");
 }
 
 my $user = $ARGV[0];
