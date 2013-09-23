@@ -7,7 +7,7 @@ use strict;
 use warnings;
 
 my $configuration_file = '/etc/ldap.conf';
-my $version = '0.4.2';
+my $version = '0.4.3';
 my $prog_name = basename($0);
 
 sub help {
@@ -35,7 +35,7 @@ sub parse_config {
     my ($config_file) = @_;
 
     my $conf;
-    open(CONF, "<$config_file");
+    open(CONF, "<$config_file") or die("Configuration file $config_file does not exist");
 
     while(<CONF>) {
         next if ( $_ =~ /^#/ or $_ =~ /^\s+$/ );
@@ -81,25 +81,26 @@ sub writeToLog {
     close(LD);
 }
 
-help() if ( $ARGV[0] eq '-h' or $ARGV[0] eq '--help' or !defined($ARGV[0]) );
-version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' or !defined($ARGV[0]) );
+help() if ( !defined($ARGV[0]) or $ARGV[0] eq '-h' or $ARGV[0] eq '--help' );
+version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
+
+my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
+
+if ( ! -e $configuration_file ){
+	writeToLog('/tmp/openssh-ldap-publickey.log', 1, "Configuration file $configuration_file does not exist");
+	print "Configuration file $configuration_file does not exist!\n";
+	exit -1;
+}
 
 my $conf = parse_config($configuration_file);
 my $log_level = $conf->{'openssh_ldap_loglevel'};
-my $logfile = $conf->{'openssh_ldap_logfile'} || '/tmp/openssh-ldap-publickey.log';
+my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
 my $timeout = $conf->{'timeout'} || 10;
 my $nss_base_passwd = $conf->{'nss_base_passwd'} || "ou=People," .$conf->{'base'};
 my $scope = $conf->{'scope'} || undef;
 my ($mesg, $final_filter) ;
 
-
 writeToLog($logfile, $log_level, "Connecting to ldap server $conf->{'uri'} with timeout $timeout");
-
-if ( ! -e $configuration_file ){
-    writeToLog($logfile, $log_level, "Configuration file $configuration_file does not exist");
-    print "Configuration file $configuration_file does not exist!\n";
-    exit -1;
-}
 
 my $ldap = Net::LDAP->new(
     $conf->{'uri'},
