@@ -8,7 +8,7 @@ use warnings;
 
 my $configuration_file = '/etc/ldap.conf';
 my $secret_file = '/etc/ldap.secret';
-my $version = '0.4.4';
+my $version = '0.4.5';
 my $prog_name = basename($0);
 
 sub help {
@@ -106,6 +106,26 @@ sub check_credentials {
     return($conf);
 }
 
+sub check_tls_settings {
+    my $conf = shift;
+	my $params = {};
+
+	# Mapping from ldap.conf to Net::LDAP keys
+	my %map = (
+        'tls_cacertdir' => 'capath',
+        'tls_cert'      => 'clientcert',
+        'tls_key'       => 'clientkey',
+	);
+
+	foreach my $key (keys(%map)) {
+		if ( exists($conf->{$key}) && length($conf->{$key}) ) {
+			$params->{$map{$key}} = $conf->{$key};
+		}
+	}
+
+    return($params);
+}
+
 sub writeToLog {
     my ($logfile, $log_level, $message) = @_;
 
@@ -156,6 +176,12 @@ my $ldap = Net::LDAP->new(
     $conf->{'uri'},
     timeout => $timeout
 ) or die "$@";
+
+# When start_tls is enabled get the required settings to setup a TLS connection.
+if (exists($conf->{'ssl'}) && $conf->{'ssl'} eq 'start_tls') {
+    $ldap->start_tls(check_tls_settings($conf));
+}
+
 
 if (
 	exists($conf->{'binddn'}) && length($conf->{'binddn'}) &&
