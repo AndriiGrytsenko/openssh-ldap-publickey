@@ -4,9 +4,10 @@ use Net::LDAP;
 use POSIX qw(strftime);
 use File::Basename;
 use strict;
+use warnings;
 
 my $configuration_file = '/etc/ldap.conf';
-my $version = '0.4.1';
+my $version = '0.4.2';
 my $prog_name = basename($0);
 
 sub help {
@@ -53,6 +54,18 @@ sub parse_config {
     }
 
     close(CONF);
+
+    # Support nss_base_passwd with scope notation
+    # example:
+    # nss_base_passwd ou=People?one
+    if (exists($conf->{'nss_base_passwd'}) && $conf->{'nss_base_passwd'} =~ /(.*)\?(.*)/) {
+        if (defined($1) && length($1)) {
+            $conf->{'nss_base_passwd'} = $1;
+        }
+        if (defined($2) && length($2)) {
+            $conf->{'scope'} = $2;
+        }
+    }
     return($conf);
 }
 
@@ -76,23 +89,22 @@ my $log_level = $conf->{'openssh_ldap_loglevel'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || '/tmp/openssh-ldap-publickey.log';
 my $timeout = $conf->{'timeout'} || 10;
 my $nss_base_passwd = $conf->{'nss_base_passwd'} || "ou=People," .$conf->{'base'};
+my $scope = $conf->{'scope'} || undef;
 my ($mesg, $final_filter) ;
 
 
 writeToLog($logfile, $log_level, "Connecting to ldap server $conf->{'uri'} with timeout $timeout");
 
 if ( ! -e $configuration_file ){
-    writeToLog($logfile, $log_level, "Configuration file $configuration_file is not exists");
-    print "Configuration file $configuration_file is not exists!\n";
+    writeToLog($logfile, $log_level, "Configuration file $configuration_file does not exist");
+    print "Configuration file $configuration_file does not exist!\n";
     exit -1;
 }
-
 
 my $ldap = Net::LDAP->new(
     $conf->{'uri'},
     timeout => $timeout
 ) or die "$@";
-
 
 if ( $conf->{'binddn'} and $conf->{'bindpw'} ) {
     writeToLog($logfile, $log_level, "Try to bind with user $conf->{'binddn'}");
@@ -101,29 +113,29 @@ if ( $conf->{'binddn'} and $conf->{'bindpw'} ) {
         password => $conf->{'bindpw'}
     );
 } else {
-    writeToLog($logfile, $log_level,  "Try an anonymous bind");
+    writeToLog($logfile, $log_level, "Try an anonymous bind");
     $ldap->bind or die "$@";
 }
+
 my $user = $ARGV[0];
 
-if ( $conf->{'pam_filter'} ){ 
+if ( $conf->{'pam_filter'} ){
     $final_filter = "&(".$conf->{'pam_filter'}.")(uid=".$user.")";
 } else {
     $final_filter = 'cn=*';
-} 
+}
 
 writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base $nss_base_passwd");
-$mesg = $ldap->search(
-    base   => "$nss_base_passwd",
+
+my %search_params = (
+    base => "$nss_base_passwd",
     filter => "$final_filter",
-    attrs => ['sshPublicKey']
+    defined($scope) ? (scope => 'one') : (),
+    attrs => ['sshPublicKey', 'sshPublickey']
 );
+$mesg = $ldap->search(%search_params);
 
-$mesg->code && die $mesg->error;
-
-
-my $entry;
-foreach $entry ($mesg->entries) {
+foreach my $entry ($mesg->entries) {
     my $keys = $entry->{asn}->{attributes}->[0]->{vals};
     foreach my $key (@$keys){
         writeToLog($logfile, $log_level, "Key found: $key");
@@ -133,5 +145,3 @@ foreach $entry ($mesg->entries) {
 
 writeToLog($logfile, $log_level, "Disconnecting");
 $mesg = $ldap->unbind;
-
-
