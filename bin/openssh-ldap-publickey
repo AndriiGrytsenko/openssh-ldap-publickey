@@ -8,7 +8,7 @@ use warnings;
 
 my $configuration_file = '/etc/ldap.conf';
 my $secret_file = '/etc/ldap.secret';
-my $version = '0.4.6';
+my $version = '0.4.7';
 my $prog_name = basename($0);
 
 sub help {
@@ -32,7 +32,6 @@ sub version {
     exit;
 }
 
-# TODO Ability to make URI as arrayref with mulitple HOSTS, for failover scenario.
 sub parse_config {
     my ($config_file) = @_;
 
@@ -48,13 +47,34 @@ sub parse_config {
         # remove trailing whitespace
         $line =~ s/\s+$//;
 
-        my ($key,$val) = split(/\s+/, $line);
+        # Save all possible values and don't limit us to single key and value pairs.
+        # In some cases we might need the other values.
+        my @tmp = split(/\s+/, $line);
+        if (scalar(@tmp) < 2) {
+            die("Error, incorrect config line, should at least containt key, value pair.\n");
+        }
+
+        # In most cases the key is at element 0 and the value is at element 1.
+        my $key = $tmp[0];
+        my $val = $tmp[1];
         # convert keys to lower case
         $key = lc($key);
 
+        # In some cases uri has multiple hosts for fail over purpose, check if this is the case
+        # and create an array of uri entries.
+        # Net::LDAP supports arrayref for hosts.
+        # According to docs:
+        #   HOST may also be a reference to an array of hosts, host-port pairs or URIs to try.
+        #   Each will be tried in order until a connection is made.
+        #   Only when all have failed will the result of undef be returned.
+        if ($key eq 'uri') {
+            # Remove element 0 containing our key and leave the values intact.
+            shift(@tmp);
+            $conf->{$key} = [ @tmp ];
+        }
         # In some cases nss_base_passwd is defined multiple times, check if this is the case
         # and create an array of nss_base_passwd entries.
-        if ($key eq 'nss_base_passwd') {
+        elsif ($key eq 'nss_base_passwd') {
             $val = parse_nss_base_passwd($val);
             push(@{$conf->{$key}}, $val);
         }
@@ -128,9 +148,10 @@ sub check_tls_settings {
 
 	# Mapping from ldap.conf to Net::LDAP keys
 	my %map = (
-        'tls_cacertdir' => 'capath',
-        'tls_cert'      => 'clientcert',
-        'tls_key'       => 'clientkey',
+        'tls_cacertdir'  => 'capath',
+        'tls_cert'       => 'clientcert',
+        'tls_key'        => 'clientkey',
+        'tls_cacertfile' => 'cafile',
 	);
 
 	foreach my $key (keys(%map)) {
