@@ -4,9 +4,11 @@ use Net::LDAP;
 use POSIX qw(strftime);
 use File::Basename;
 use strict;
+use warnings;
 
 my $configuration_file = '/etc/ldap.conf';
-my $version = '0.4.1';
+my $secret_file = '/etc/ldap.secret';
+my $version = '0.4.7';
 my $prog_name = basename($0);
 
 sub help {
@@ -34,13 +36,10 @@ sub parse_config {
     my ($config_file) = @_;
 
     my $conf;
-    open(CONF, "<$config_file");
+    my @lines = read_file($config_file);
 
-    while(<CONF>) {
-        next if ( $_ =~ /^#/ or $_ =~ /^\s+$/ );
-
-        # convert to lower case
-        my $line = lc($_);
+    foreach my $line (@lines) {
+        next if ( $line =~ /^#/ || $line =~ /^\s+$/ );
 
         # remove leading whitespace
         $line =~ s/^\s+//;
@@ -48,12 +47,133 @@ sub parse_config {
         # remove trailing whitespace
         $line =~ s/\s+$//;
 
-        my ($key,$val) = split(/\s+/, $line);
-        $conf->{$key}=$val;
+        # Save all possible values and don't limit us to single key and value pairs.
+        # In some cases we might need the other values.
+        my @tmp = split(/\s+/, $line);
+        if (scalar(@tmp) < 2) {
+            die("Error, incorrect config line, should at least containt key, value pair.\n");
+        }
+
+        # In most cases the key is at element 0 and the value is at element 1.
+        my $key = $tmp[0];
+        my $val = $tmp[1];
+        # convert keys to lower case
+        $key = lc($key);
+
+        # In some cases uri has multiple hosts for fail over purpose, check if this is the case
+        # and create an array of uri entries.
+        # Net::LDAP supports arrayref for hosts.
+        # According to docs:
+        #   HOST may also be a reference to an array of hosts, host-port pairs or URIs to try.
+        #   Each will be tried in order until a connection is made.
+        #   Only when all have failed will the result of undef be returned.
+        if ($key eq 'uri') {
+            # Remove element 0 containing our key and leave the values intact.
+            shift(@tmp);
+            $conf->{$key} = [ @tmp ];
+        }
+        # In some cases nss_base_passwd is defined multiple times, check if this is the case
+        # and create an array of nss_base_passwd entries.
+        elsif ($key eq 'nss_base_passwd') {
+            $val = parse_nss_base_passwd($val);
+            push(@{$conf->{$key}}, $val);
+        }
+        else {
+            $conf->{$key} = $val;
+        }
     }
 
-    close(CONF);
     return($conf);
+}
+
+sub parse_nss_base_passwd {
+    my $nss_base_passwd = shift;
+
+    my $result = {
+        'nss_base_passwd' => undef,
+        'scope'           => undef,
+    };
+
+    # Support nss_base_passwd with scope notation
+    # example:
+    # nss_base_passwd ou=People?one
+    if ($nss_base_passwd =~ /(.*)\?(.*)/) {
+        if (defined($1) && length($1)) {
+            $result->{'nss_base_passwd'} = $1;
+        }
+        if (defined($2) && length($2)) {
+            $result->{'scope'} = $2;
+        }
+    }
+
+    return($result);
+}
+
+sub parse_secret_file {
+    my $secret_file = shift;
+
+    my $secret = read_file($secret_file);
+    chomp($secret);
+    return($secret);
+}
+
+sub check_credentials {
+    my $conf = shift;
+    my $secret_file = shift;
+
+    my $secret = undef;
+    if ( -r $secret_file) {
+        $secret = parse_secret_file($secret_file);
+    }
+
+    # When no binddn is found find out if we can find an alternative binddn.
+    unless ( exists($conf->{'binddn'}) && length($conf->{'binddn'}) ) {
+        if ( exists($conf->{'rootbinddn'}) && length($conf->{'rootbinddn'}) ) {
+            $conf->{'binddn'} = $conf->{'rootbinddn'};
+        }
+    }
+
+    # When no bindpw is found find out if we can find an alternative bindpw.
+    unless ( exists($conf->{'bindpw'}) && length($conf->{'bindpw'})) {
+        if (defined($secret) && length($secret)) {
+            $conf->{'bindpw'} = $secret;
+        }
+    }
+    return($conf);
+}
+
+sub check_tls_settings {
+    my $conf = shift;
+	my $params = {};
+
+	# Mapping from ldap.conf to Net::LDAP keys
+	my %map = (
+        'tls_cacertdir'  => 'capath',
+        'tls_cert'       => 'clientcert',
+        'tls_key'        => 'clientkey',
+        'tls_cacertfile' => 'cafile',
+	);
+
+	foreach my $key (keys(%map)) {
+		if ( exists($conf->{$key}) && length($conf->{$key}) ) {
+			$params->{$map{$key}} = $conf->{$key};
+		}
+	}
+
+    return($params);
+}
+
+sub read_file {
+    my $file = shift;
+
+    local($/) = wantarray ? $/ : undef;
+    local(*F);
+    my $r; my (@r);
+    open(F, "<$file") || die("error opening $file: $!");
+    @r = <F>;
+    close(F) || die("error closing $file: $!");
+    return $r[0] unless wantarray;
+    return @r;
 }
 
 sub writeToLog {
@@ -64,74 +184,93 @@ sub writeToLog {
     open(LD, ">>$logfile");
 
     print LD "$timestamp: $message\n";
-
     close(LD);
 }
 
-help() if ( $ARGV[0] eq '-h' or $ARGV[0] eq '--help' or !defined($ARGV[0]) );
-version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' or !defined($ARGV[0]) );
+help() if ( !defined($ARGV[0]) or $ARGV[0] eq '-h' or $ARGV[0] eq '--help' );
+version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
 
-my $conf = parse_config($configuration_file);
-my $log_level = $conf->{'openssh_ldap_loglevel'};
-my $logfile = $conf->{'openssh_ldap_logfile'} || '/tmp/openssh-ldap-publickey.log';
-my $timeout = $conf->{'timeout'} || 10;
-my $nss_base_passwd = $conf->{'nss_base_passwd'} || "ou=People," .$conf->{'base'};
-my ($mesg, $final_filter) ;
+my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
 
-
-writeToLog($logfile, $log_level, "Connecting to ldap server $conf->{'uri'} with timeout $timeout");
-
-if ( ! -e $configuration_file ){
-    writeToLog($logfile, $log_level, "Configuration file $configuration_file is not exists");
-    print "Configuration file $configuration_file is not exists!\n";
-    exit -1;
+if ( ! -e $configuration_file ) {
+	my $error = "Configuration file $configuration_file does not exist";
+	writeToLog($fallback_logfile, 1, "Configuration file $configuration_file does not exist");
+	die($error."!\n");
 }
 
+my $conf = parse_config($configuration_file);
+
+# Validate mandatory config settings
+unless (
+	exists($conf->{'base'}) && length($conf->{'base'}) &&
+	exists($conf->{'uri'}) && length($conf->{'uri'})
+) {
+	my $error = "Missing one or more mandatory config settings: base and/or uri";
+	writeToLog($fallback_logfile, 1, $error);
+	die("$error".!"\n");
+}
+
+
+my $log_level = $conf->{'openssh_ldap_loglevel'};
+my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
+my $timeout = $conf->{'timeout'} || 10;
+my $nss_base_passwd = $conf->{'nss_base_passwd'} || [ "ou=People," .$conf->{'base'} ];
+my ($mesg, $final_filter);
+$conf = check_credentials($conf, $secret_file);
+
+writeToLog($logfile, $log_level, "Connecting to ldap server $conf->{'uri'} with timeout $timeout");
 
 my $ldap = Net::LDAP->new(
     $conf->{'uri'},
     timeout => $timeout
 ) or die "$@";
 
+# When start_tls is enabled get the required settings to setup a TLS connection.
+if (exists($conf->{'ssl'}) && $conf->{'ssl'} eq 'start_tls') {
+    $ldap->start_tls(check_tls_settings($conf));
+}
 
-if ( $conf->{'binddn'} and $conf->{'bindpw'} ) {
+if (
+	exists($conf->{'binddn'}) && length($conf->{'binddn'}) &&
+	exists($conf->{'bindpw'})
+) {
     writeToLog($logfile, $log_level, "Try to bind with user $conf->{'binddn'}");
     $ldap->bind(
         $conf->{'binddn'},
         password => $conf->{'bindpw'}
     );
 } else {
-    writeToLog($logfile, $log_level,  "Try an anonymous bind");
-    $ldap->bind or die "$@";
+    writeToLog($logfile, $log_level, "Try an anonymous bind");
+    $ldap->bind or die("$@");
 }
+
 my $user = $ARGV[0];
 
-if ( $conf->{'pam_filter'} ){ 
+if ( $conf->{'pam_filter'} ){
     $final_filter = "&(".$conf->{'pam_filter'}.")(uid=".$user.")";
 } else {
     $final_filter = 'cn=*';
-} 
+}
 
-writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base $nss_base_passwd");
-$mesg = $ldap->search(
-    base   => "$nss_base_passwd",
-    filter => "$final_filter",
-    attrs => ['sshPublicKey']
-);
+foreach my $entity (@$nss_base_passwd) {
+    writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base" . $entity->{'nss_base_passwd'});
 
-$mesg->code && die $mesg->error;
+    my %search_params = (
+        base => $entity->{'nss_base_passwd'},
+        filter => "$final_filter",
+        defined($entity->{'scope'}) ? (scope => $entity->{'scope'}) : (),
+        attrs => ['sshPublicKey', 'sshPublickey']
+    );
 
-
-my $entry;
-foreach $entry ($mesg->entries) {
-    my $keys = $entry->{asn}->{attributes}->[0]->{vals};
-    foreach my $key (@$keys){
-        writeToLog($logfile, $log_level, "Key found: $key");
-        print "$key\n";
+    $mesg = $ldap->search(%search_params);
+    foreach my $entity ($mesg->entries) {
+        my $keys = $entity->{asn}->{attributes}->[0]->{vals};
+        foreach my $key (@$keys){
+            writeToLog($logfile, $log_level, "Key found: $key");
+            print "$key\n";
+        }
     }
 }
 
 writeToLog($logfile, $log_level, "Disconnecting");
 $mesg = $ldap->unbind;
-
-
