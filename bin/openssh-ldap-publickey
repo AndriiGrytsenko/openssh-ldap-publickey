@@ -8,7 +8,7 @@ use warnings;
 
 my $configuration_file = '/etc/ldap.conf';
 my $secret_file = '/etc/ldap.secret';
-my $version = '0.4.5';
+my $version = '0.4.6';
 my $prog_name = basename($0);
 
 sub help {
@@ -32,17 +32,15 @@ sub version {
     exit;
 }
 
+# TODO Ability to make URI as arrayref with mulitple HOSTS, for failover scenario.
 sub parse_config {
     my ($config_file) = @_;
 
     my $conf;
-    open(CONF, "<$config_file") or die("Configuration file $config_file does not exist");
+    my @lines = read_file($config_file);
 
-    while(<CONF>) {
-        next if ( $_ =~ /^#/ or $_ =~ /^\s+$/ );
-
-        # convert to lower case
-        my $line = lc($_);
+    foreach my $line (@lines) {
+        next if ( $line =~ /^#/ || $line =~ /^\s+$/ );
 
         # remove leading whitespace
         $line =~ s/^\s+//;
@@ -51,33 +49,51 @@ sub parse_config {
         $line =~ s/\s+$//;
 
         my ($key,$val) = split(/\s+/, $line);
-        $conf->{$key}=$val;
+        # convert keys to lower case
+        $key = lc($key);
+
+        # In some cases nss_base_passwd is defined multiple times, check if this is the case
+        # and create an array of nss_base_passwd entries.
+        if ($key eq 'nss_base_passwd') {
+            $val = parse_nss_base_passwd($val);
+            push(@{$conf->{$key}}, $val);
+        }
+        else {
+            $conf->{$key} = $val;
+        }
     }
 
-    close(CONF);
+    return($conf);
+}
+
+sub parse_nss_base_passwd {
+    my $nss_base_passwd = shift;
+
+    my $result = {
+        'nss_base_passwd' => undef,
+        'scope'           => undef,
+    };
 
     # Support nss_base_passwd with scope notation
     # example:
     # nss_base_passwd ou=People?one
-    if (exists($conf->{'nss_base_passwd'}) && $conf->{'nss_base_passwd'} =~ /(.*)\?(.*)/) {
+    if ($nss_base_passwd =~ /(.*)\?(.*)/) {
         if (defined($1) && length($1)) {
-            $conf->{'nss_base_passwd'} = $1;
+            $result->{'nss_base_passwd'} = $1;
         }
         if (defined($2) && length($2)) {
-            $conf->{'scope'} = $2;
+            $result->{'scope'} = $2;
         }
     }
-    return($conf);
+
+    return($result);
 }
 
 sub parse_secret_file {
     my $secret_file = shift;
 
-    local(*INPUT, $/);
-    open (INPUT, "<$secret_file");
-    my $secret = <INPUT>;
+    my $secret = read_file($secret_file);
     chomp($secret);
-    close(INPUT);
     return($secret);
 }
 
@@ -86,7 +102,7 @@ sub check_credentials {
     my $secret_file = shift;
 
     my $secret = undef;
-    if ( -e $secret_file) {
+    if ( -r $secret_file) {
         $secret = parse_secret_file($secret_file);
     }
 
@@ -126,6 +142,19 @@ sub check_tls_settings {
     return($params);
 }
 
+sub read_file {
+    my $file = shift;
+
+    local($/) = wantarray ? $/ : undef;
+    local(*F);
+    my $r; my (@r);
+    open(F, "<$file") || die("error opening $file: $!");
+    @r = <F>;
+    close(F) || die("error closing $file: $!");
+    return $r[0] unless wantarray;
+    return @r;
+}
+
 sub writeToLog {
     my ($logfile, $log_level, $message) = @_;
 
@@ -134,7 +163,6 @@ sub writeToLog {
     open(LD, ">>$logfile");
 
     print LD "$timestamp: $message\n";
-
     close(LD);
 }
 
@@ -165,8 +193,7 @@ unless (
 my $log_level = $conf->{'openssh_ldap_loglevel'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
 my $timeout = $conf->{'timeout'} || 10;
-my $nss_base_passwd = $conf->{'nss_base_passwd'} || "ou=People," .$conf->{'base'};
-my $scope = $conf->{'scope'} || undef;
+my $nss_base_passwd = $conf->{'nss_base_passwd'} || [ "ou=People," .$conf->{'base'} ];
 my ($mesg, $final_filter);
 $conf = check_credentials($conf, $secret_file);
 
@@ -181,7 +208,6 @@ my $ldap = Net::LDAP->new(
 if (exists($conf->{'ssl'}) && $conf->{'ssl'} eq 'start_tls') {
     $ldap->start_tls(check_tls_settings($conf));
 }
-
 
 if (
 	exists($conf->{'binddn'}) && length($conf->{'binddn'}) &&
@@ -205,21 +231,23 @@ if ( $conf->{'pam_filter'} ){
     $final_filter = 'cn=*';
 }
 
-writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base $nss_base_passwd");
+foreach my $entity (@$nss_base_passwd) {
+    writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base" . $entity->{'nss_base_passwd'});
 
-my %search_params = (
-    base => "$nss_base_passwd",
-    filter => "$final_filter",
-    defined($scope) ? (scope => 'one') : (),
-    attrs => ['sshPublicKey', 'sshPublickey']
-);
-$mesg = $ldap->search(%search_params);
+    my %search_params = (
+        base => $entity->{'nss_base_passwd'},
+        filter => "$final_filter",
+        defined($entity->{'scope'}) ? (scope => $entity->{'scope'}) : (),
+        attrs => ['sshPublicKey', 'sshPublickey']
+    );
 
-foreach my $entry ($mesg->entries) {
-    my $keys = $entry->{asn}->{attributes}->[0]->{vals};
-    foreach my $key (@$keys){
-        writeToLog($logfile, $log_level, "Key found: $key");
-        print "$key\n";
+    $mesg = $ldap->search(%search_params);
+    foreach my $entity ($mesg->entries) {
+        my $keys = $entity->{asn}->{attributes}->[0]->{vals};
+        foreach my $key (@$keys){
+            writeToLog($logfile, $log_level, "Key found: $key");
+            print "$key\n";
+        }
     }
 }
 
