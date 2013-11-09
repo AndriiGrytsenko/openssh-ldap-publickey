@@ -49,7 +49,7 @@ sub parse_config {
 
         # Save all possible values and don't limit us to single key and value pairs.
         # In some cases we might need the other values.
-        my @tmp = split(/\s+/, $line);
+        my @tmp = split(/\s+/, $line, 2);
         if (scalar(@tmp) < 2) {
             die("Error, incorrect config line, should at least containt key, value pair.\n");
         }
@@ -68,9 +68,7 @@ sub parse_config {
         #   Each will be tried in order until a connection is made.
         #   Only when all have failed will the result of undef be returned.
         if ($key eq 'uri') {
-            # Remove element 0 containing our key and leave the values intact.
-            shift(@tmp);
-            $conf->{$key} = [ @tmp ];
+            $conf->{$key} = [ split(/\s+/, $val) ];
         }
         # In some cases nss_base_passwd is defined multiple times, check if this is the case
         # and create an array of nss_base_passwd entries.
