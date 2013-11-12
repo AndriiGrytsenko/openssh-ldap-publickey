@@ -242,6 +242,8 @@ if (
     $ldap->bind or die("$@");
 }
 
+# Validate username for any bad characters.
+$ARGV[0] =~ /[^a-zA-Z0-9._-]/ && die("bad characters in username");
 my $user = $ARGV[0];
 
 if ( $conf->{'pam_filter'} ){
