@@ -249,7 +249,7 @@ my $user = $ARGV[0];
 if ( $conf->{'pam_filter'} ){
     $final_filter = "&(".$conf->{'pam_filter'}.")(uid=".$user.")";
 } else {
-    $final_filter = 'cn=*';
+    $final_filter = 'uid='.$user;
 }
 
 foreach my $entity (@$nss_base_passwd) {
