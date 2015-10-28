@@ -95,12 +95,12 @@ sub parse_nss_base_passwd {
     # Support nss_base_passwd with scope notation
     # example:
     # nss_base_passwd ou=People?one
-    if ($nss_base_passwd =~ /(.*)\?(.*)/) {
+    if ($nss_base_passwd =~ /([^\?]*)(\?([^\?]*))?/) {
         if (defined($1) && length($1)) {
             $result->{'nss_base_passwd'} = $1;
         }
-        if (defined($2) && length($2)) {
-            $result->{'scope'} = $2;
+        if (defined($3) && length($3)) {
+            $result->{'scope'} = $3;
         }
     }
 
