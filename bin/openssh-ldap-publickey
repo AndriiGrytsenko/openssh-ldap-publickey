@@ -76,21 +76,36 @@ sub parse_config {
             $val = parse_nss_base_passwd($val);
             push(@{$conf->{$key}}, $val);
         }
-        elsif ($key eq 'tls_reqcert') {
-            $conf->{'verify'} = map_reqcert($val);
+        elsif ($key =~ /^tls_.+/) {
+            map_tls_options($conf, $key, $val);
         }
         else {
             $conf->{$key} = $val;
         }
     }
 
-    # If no TLS_REQCERT key was there, set a safe default option.
-    $conf->{'verify'} = 'require';
+    if (!$conf->{'verify'}) {
+        # If no TLS_REQCERT key was there, set a safe default option.
+        $conf->{'verify'} = 'require';
+    }
 
     return($conf);
 }
 
-sub map_reqcert {
+sub map_tls_options {
+    my ($conf, $key, $val) = @_;
+
+    my %map = (
+        'tls_reqcert' => sub { $conf->{'verify'} = map_tls_reqcert(shift); },
+        'tls_cacert' => sub { $conf->{'cafile'} = shift; },
+        'tls_cacertdir' => sub { $conf->{'capath'} = shift; },
+        'tls_cert' => sub { $conf->{'clientcert'} = shift; },
+        'tls_key' => sub { $conf->{'clientkey'} = shift; },
+        );
+    $map{$key}->($val);
+}
+
+sub map_tls_reqcert {
     my $reqcert = shift;
 
     # Mapping from TLS_REQCERT to Net::LDAP->new()'s verify
@@ -241,7 +256,11 @@ my $ldap = Net::LDAP->new(
     $conf->{'uri'},
     timeout => $timeout,
     verify => $conf->{'verify'},
-) or die "$@";
+    cafile => $conf->{'cafile'},
+    capath => $conf->{'capath'},
+    clientcert => $conf->{'clientcert'},
+    clientkey => $conf->{'clientkey'},
+    ) or die "$@";
 
 # When start_tls is enabled get the required settings to setup a TLS connection.
 if (exists($conf->{'ssl'}) && $conf->{'ssl'} eq 'start_tls') {
