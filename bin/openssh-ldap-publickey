@@ -1,12 +1,10 @@
 #!/usr/bin/perl
-
 use Net::LDAP;
 use POSIX qw(strftime);
 use File::Basename;
 use strict;
 use warnings;
 
-my $configuration_file = '/etc/ldap.conf';
 my $secret_file = '/etc/ldap.secret';
 my $version = '0.4.7';
 my $prog_name = basename($0);
@@ -189,10 +187,17 @@ help() if ( !defined($ARGV[0]) or $ARGV[0] eq '-h' or $ARGV[0] eq '--help' );
 version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
 
 my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
+my $configuration_file = '/dev/null';
 
-if ( ! -e $configuration_file ) {
-	my $error = "Configuration file $configuration_file does not exist";
-	writeToLog($fallback_logfile, 1, "Configuration file $configuration_file does not exist");
+if ( -e '/etc/ldap.conf' ) {
+	$configuration_file = '/etc/ldap.conf';
+} elsif ( -e '/etc/pam_ldap.conf' ) {
+	$configuration_file = '/etc/pam_ldap.conf';
+} elsif ( -e '/etc/libnss-ldap.conf' ) {
+        $configuration_file = '/etc/libnss-ldap.conf';
+} else {
+	my $error = "Configuration file /etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf does not exist";
+	writeToLog($fallback_logfile, 1, $error);
 	die($error."!\n");
 }
 
