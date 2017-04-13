@@ -52,6 +52,10 @@ if you want store key **ONLY** in ldap, change next lines
     * mainstream openssh-server >= 6.2
     * RedHat/CentOS openssh-server >= 5.3
 
+#### Requirements (Debian / Ubuntu):
+1. Debian 8+ (or 7+ with backports) / Ubuntu 14.04+
+2. `apt-get install libnet-ldap-perl`
+
 ### Configuration:
 
 All configuration is read from **/etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf** and currently script uses only those parameters:
