@@ -217,7 +217,7 @@ unless (
 my $log_level = $conf->{'openssh_ldap_loglevel'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
 my $timeout = $conf->{'timeout'} || 10;
-my $nss_base_passwd = $conf->{'nss_base_passwd'} || [ { nss_base_passwd => "ou=People," .$conf->{'base'}, scope => undef } ];
+my $nss_base_passwd = $conf->{'nss_base_passwd'} || [ { nss_base_passwd => $conf->{'base'}, scope => undef } ];
 my ($mesg, $final_filter);
 $conf = check_credentials($conf, $secret_file);
 
@@ -258,7 +258,7 @@ if ( $conf->{'pam_filter'} ){
 }
 
 foreach my $entity (@$nss_base_passwd) {
-    writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base" . $entity->{'nss_base_passwd'});
+    writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base " . $entity->{'nss_base_passwd'});
 
     my %search_params = (
         base => $entity->{'nss_base_passwd'},
