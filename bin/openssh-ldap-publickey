@@ -217,7 +217,8 @@ unless (
 my $log_level = $conf->{'openssh_ldap_loglevel'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
 my $timeout = $conf->{'timeout'} || 10;
-my $nss_base_passwd = $conf->{'nss_base_passwd'} || [ { nss_base_passwd => $conf->{'base'}, scope => undef } ];
+my $nss_base = $conf->{'nss_base'} || "";
+my $nss_base_passwd = $conf->{'nss_base_passwd'} || [ { nss_base_passwd => $nss_base .$conf->{'base'}, scope => undef } ];
 my ($mesg, $final_filter);
 $conf = check_credentials($conf, $secret_file);
 

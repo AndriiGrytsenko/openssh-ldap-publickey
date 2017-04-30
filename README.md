@@ -64,7 +64,8 @@ All configuration is read from **/etc/ldap.conf, /etc/pam_ldap.conf or /etc/libn
 **uri** - uri to ldap     
 **pam_filter** - ldap search filter(*Optional*)     
 **base** - ldap base dir      
-**nss_base_passwd** - User DN. If not set - "ou=People" + **base**.     
+**nss_base_passwd** - User DN. If not set - **nss_base** + **base**.
+**nss_base** - filter for user DN, with suffix omitted, ex:*ou=People,* (*Optional*)
 **timeout** - ldap connection timeout. Default 10.         
 **binddn** - bind dn(*Optional*)      
 **bindpw** - bind dn password(*Optional*)      
