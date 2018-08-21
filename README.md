@@ -8,8 +8,8 @@ Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 You create entry for user from OpenLdap and add attribut `'sshPublicKey'` with **PublicKey** to this user.
 When user try login through the ssh, OpenSSH calls **/usr/bin/openssh-ldap-publickey script** which in its turn makes request to OpenLdap asking for **sshPublicKey** attribute value.
 
-Ldap connection parameters are used by **openssh-ldap-publickey** is taken from **/etc/ldap.conf** file.
-Keep in mind that  **'pam_filter'** value from **/etc/ldap.conf** is used by **openssh-ldap-publickey**.
+Ldap connection parameters are used by **openssh-ldap-publickey** is taken from **/etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf** file.
+Keep in mind that  **'pam_filter'** value from **/etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf** is used by **openssh-ldap-publickey**.
 
 Basically, it looks similar to this scheme   
 ssh-client -> ssh-server -> openssh-ldap-publickey -> openldap server -> openldap server is looking for attribute **sshPublicKey** inside user's entry in Base DN
@@ -20,7 +20,7 @@ To implement ldap key authentication support take next steps:
 
 1. Setup your system to use ldap authorization
 2. Add new ldap schema from */usr/share/doc/openssh-ldap-publickey-{version}/openssh-lpk-openldap.schema* to your ldap server.
-3. In case you want take advantage of host based authorization, change your */etc/ldap.conf* adding:   
+3. In case you want take advantage of host based authorization, change your */etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf* adding:   
     + Add new object to your user entry - **ldapPublicKey**    
     `pam_filter |(host=test-server.example.com)(host=\*)`
     + Add next attributes into user entry:
@@ -52,22 +52,27 @@ if you want store key **ONLY** in ldap, change next lines
     * mainstream openssh-server >= 6.2
     * RedHat/CentOS openssh-server >= 5.3
 
+#### Requirements (Debian / Ubuntu):
+1. Debian 8+ (or 7+ with backports) / Ubuntu 14.04+
+2. `apt-get install libnet-ldap-perl`
+
 ### Configuration:
 
-All configuration is read from **/etc/ldap.conf** and currently script uses only those parameters:
-      
-    
+All configuration is read from **/etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf** and currently script uses only those parameters:
+
+
 **uri** - uri to ldap     
 **pam_filter** - ldap search filter(*Optional*)     
 **base** - ldap base dir      
-**nss_base_passwd** - User DN. If not set - "ou=People" + **base**.     
+**nss_base_passwd** - User DN. If not set - **nss_base** + **base**     
+**nss_base** - filter for user DN, with suffix omitted, ex:*ou=People,* (*Optional*)     
 **timeout** - ldap connection timeout. Default 10.         
 **binddn** - bind dn(*Optional*)      
 **bindpw** - bind dn password(*Optional*)      
 **openssh_ldap_loglevel** - log level. By default the logging is turn off.       
 **openssh_ldap_logfile** - logfile using only when debug is on. Default */tmp/openssh-ldap-publickey.log*.      
- 
-For more information about this params refer to ldap.conf man page. 
+
+For more information about this params refer to ldap.conf man page.
 
 #### Auth support:
 To enable auth set **binddn** and **bindpw** in ldap.conf
@@ -87,14 +92,14 @@ In order to enable logging you have to setup **openssh_ldap_loglevel** and **ope
 
     **Cause**:      
     Variable **nss_base_passwd** in **ldap.conf** is empty or doesn't set explicitly to users DN.     
-      
+
     **Solution**:     
     Set **nss_base_passwd** explicitly to users DN.     
     Example: **ou=People,dc=test,dc=com** (without prefix **?one** or something)     
-          
+
 
 ## Where to download RPM package?      
 You can find RPM packages [here](http://andriigrytsenko.net/repo/openssh-ldap-publickey/)
-     
+
 ### AuthorizedKeysCommand support and CentOS/RHEL 5.x
 Check [this page](http://andriigrytsenko.net/2013/05/authorizedkeyscommand-support-and-centosrhel-5-x/) to see how to configure AuthorizedKeysCommand in CentOS/RHEL 5.x.
