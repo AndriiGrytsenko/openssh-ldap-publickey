@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 my $secret_file = '/etc/ldap.secret';
-my $version = '0.4.7';
+my $version = '1.0.1';
 my $prog_name = basename($0);
 
 sub help {
