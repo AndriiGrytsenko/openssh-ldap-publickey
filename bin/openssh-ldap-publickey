@@ -225,6 +225,7 @@ my $configuration_file;
 
 my @configuration_files = qw(
 	/etc/ldap.conf
+	/etc/ldap/ldap.conf
 	/etc/pam_ldap.conf
 	/etc/libnss-ldap.conf
 );
