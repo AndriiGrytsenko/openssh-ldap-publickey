@@ -221,16 +221,21 @@ help() if ( !defined($ARGV[0]) or $ARGV[0] eq '-h' or $ARGV[0] eq '--help' );
 version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
 
 my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
-my $configuration_file = '/dev/null';
+my $configuration_file;
 
-if ( -e '/etc/ldap.conf' ) {
-	$configuration_file = '/etc/ldap.conf';
-} elsif ( -e '/etc/pam_ldap.conf' ) {
-	$configuration_file = '/etc/pam_ldap.conf';
-} elsif ( -e '/etc/libnss-ldap.conf' ) {
-        $configuration_file = '/etc/libnss-ldap.conf';
-} else {
-	my $error = "Configuration file /etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf does not exist";
+my @configuration_files = qw(
+	/etc/ldap.conf
+	/etc/pam_ldap.conf
+	/etc/libnss-ldap.conf
+);
+for my $file ( @configuration_files ) {
+	if ( -e $file ) {
+		$configuration_file = $file;
+		last;
+	}
+}
+if ( ! $configuration_file ) {
+	my $error = "One of configuration files " . join( ", ", @configuration_files ) . " must exist";
 	writeToLog($fallback_logfile, 1, $error);
 	die($error."!\n");
 }
