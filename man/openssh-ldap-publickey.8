@@ -8,7 +8,7 @@ openssh-ldap-publickey [-hv] [USERNAME]
 .SH DESCRIPTION
 You create entry for user from OpenLdap and add attribut 'sshPublicKey' with PublicKey to this user. When user try login through the ssh, OpenSSH calls /usr/bin/openssh-ldap-publickey script which in its turn makes request to OpenLdap asking for sshPublicKey attribute value.
 
-Ldap connection parameters are used by openssh-ldap-publickey is taken from /etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf file. Keep in mind that 'pam_filter' value from /etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf is used by openssh-ldap-publickey.
+Ldap connection parameters used by openssh-ldap-publickey are taken from /etc/ldap.conf, /etc/ldap/ldap.conf, /etc/pam_ldap.conf, /etc/libnss-ldap.conf, or /etc/nslcd.conf. Keep in mind that 'pam_filter' value from the chosen configuration file is used by openssh-ldap-publickey.
 
 Basically, it looks similar to this scheme
 ssh-client -> ssh-server -> openssh-ldap-publickey -> openldap server -> openldap server is looking for attribute sshPublicKey inside user's entry in Base DN

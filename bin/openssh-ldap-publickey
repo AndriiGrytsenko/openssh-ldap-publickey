@@ -68,11 +68,21 @@ sub parse_config {
         if ($key eq 'uri') {
             $conf->{$key} = [ split(/\s+/, $val) ];
         }
+        elsif ($key eq 'base') {
+            # base ou=... / base group ou=... / base passwd ou=...
+            my @vals = split(/\s+/, $val);
+            if (scalar(@vals) == 1) {
+                $conf->{$key} = $val;
+            }
+            elsif (scalar(@vals) == 2 && $vals[0] eq 'passwd') {
+                push(@{$conf->{'base_passwd'}}, { base_passwd => $vals[1] });
+            }
+        }
         # In some cases nss_base_passwd is defined multiple times, check if this is the case
-        # and create an array of nss_base_passwd entries.
+        # and add to the array of base_passwd entries.
         elsif ($key eq 'nss_base_passwd') {
             $val = parse_nss_base_passwd($val);
-            push(@{$conf->{$key}}, $val);
+            push(@{$conf->{'base_passwd'}}, $val);
         }
         elsif ($key =~ /^tls_.+/) {
             map_tls_options($conf, $key, $val);
@@ -96,6 +106,7 @@ sub map_tls_options {
     my %map = (
         'tls_reqcert' => sub { $conf->{'verify'} = map_tls_reqcert(shift); },
         'tls_cacert' => sub { $conf->{'cafile'} = shift; },
+        'tls_cacertfile' => sub { $conf->{'cafile'} = shift; },
         'tls_cacertdir' => sub { $conf->{'capath'} = shift; },
         'tls_cert' => sub { $conf->{'clientcert'} = shift; },
         'tls_key' => sub { $conf->{'clientkey'} = shift; },
@@ -120,8 +131,8 @@ sub parse_nss_base_passwd {
     my $nss_base_passwd = shift;
 
     my $result = {
-        'nss_base_passwd' => undef,
-        'scope'           => undef,
+        'base_passwd' => undef,
+        'scope'       => undef,
     };
 
     # Support nss_base_passwd with scope notation
@@ -129,7 +140,7 @@ sub parse_nss_base_passwd {
     # nss_base_passwd ou=People?one
     if ($nss_base_passwd =~ /([^\?]*)(\?([^\?]*))?/) {
         if (defined($1) && length($1)) {
-            $result->{'nss_base_passwd'} = $1;
+            $result->{'base_passwd'} = $1;
         }
         if (defined($3) && length($3)) {
             $result->{'scope'} = $3;
@@ -221,16 +232,23 @@ help() if ( !defined($ARGV[0]) or $ARGV[0] eq '-h' or $ARGV[0] eq '--help' );
 version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
 
 my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
-my $configuration_file = '/dev/null';
+my $configuration_file;
 
-if ( -e '/etc/ldap.conf' ) {
-	$configuration_file = '/etc/ldap.conf';
-} elsif ( -e '/etc/pam_ldap.conf' ) {
-	$configuration_file = '/etc/pam_ldap.conf';
-} elsif ( -e '/etc/libnss-ldap.conf' ) {
-        $configuration_file = '/etc/libnss-ldap.conf';
-} else {
-	my $error = "Configuration file /etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf does not exist";
+my @configuration_files = qw(
+	/etc/ldap.conf
+	/etc/ldap/ldap.conf
+	/etc/pam_ldap.conf
+	/etc/libnss-ldap.conf
+	/etc/nslcd.conf
+);
+for my $file ( @configuration_files ) {
+	if ( -r $file && -f _ ) {
+		$configuration_file = $file;
+		last;
+	}
+}
+if ( ! $configuration_file ) {
+	my $error = "One of configuration files " . join( ", ", @configuration_files ) . " must be a readable file";
 	writeToLog($fallback_logfile, 1, $error);
 	die($error."!\n");
 }
@@ -252,7 +270,7 @@ my $log_level = $conf->{'openssh_ldap_loglevel'};
 my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
 my $timeout = $conf->{'timeout'} || 10;
 my $nss_base = $conf->{'nss_base'} || "";
-my $nss_base_passwd = $conf->{'nss_base_passwd'} || [ { nss_base_passwd => $nss_base .$conf->{'base'}, scope => undef } ];
+my $base_passwd = $conf->{'base_passwd'} || [ { base_passwd => $nss_base .$conf->{'base'}, scope => undef } ];
 my ($mesg, $final_filter);
 $conf = check_credentials($conf, $secret_file);
 
@@ -297,11 +315,11 @@ if ( $conf->{'pam_filter'} ){
     $final_filter = 'uid='.$user;
 }
 
-foreach my $entity (@$nss_base_passwd) {
-    writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base " . $entity->{'nss_base_passwd'});
+foreach my $entity (@$base_passwd) {
+    writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base " . $entity->{'base_passwd'});
 
     my %search_params = (
-        base => $entity->{'nss_base_passwd'},
+        base => $entity->{'base_passwd'},
         filter => "$final_filter",
         defined($entity->{'scope'}) ? (scope => $entity->{'scope'}) : (),
         attrs => ['sshPublicKey', 'sshPublickey']
