@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 use Net::LDAP;
+use Getopt::Long;
 use POSIX qw(strftime);
+use Sys::Syslog qw(:standard :macros);
 use File::Basename;
 use strict;
 use warnings;
@@ -9,10 +11,16 @@ my $secret_file = '/etc/ldap.secret';
 my $version = '1.0.1';
 my $prog_name = basename($0);
 
+my $log_file = "stderr";
+my $log_threshold = LOG_ERR;
+
 sub help {
-    print "Usage: $prog_name <username>\n";
+    select(STDERR) if $_[0];
+    print "Usage: $prog_name [options] <username>\n";
     print "Version: $version\n";
     print "\n";
+    print "Options:\n";
+    print "\t--log=[syslog|stderr|filename]\tSet log target (default: stderr)\n";
     print "\t-h --help\tPrint this help message and exit\n";
     print "\t-v --version\tPrint the version number and exit\n";
     print "\n";
@@ -20,7 +28,7 @@ sub help {
     print "\t". basename($0) ." username\n";
     print "If successful, it will write something like this to stdout:\n";
     print "\t".'ssh-rsa some_long_long_key user@hostname'."\n";
-    exit;
+    exit $_[0];
 }
 
 sub version {
@@ -49,7 +57,7 @@ sub parse_config {
         # In some cases we might need the other values.
         my @tmp = split(/\s+/, $line, 2);
         if (scalar(@tmp) < 2) {
-            die("Error, incorrect config line, should at least containt key, value pair.\n");
+            die("Error, incorrect config line, should at least contain key, value pair.");
         }
 
         # In most cases the key is at element 0 and the value is at element 1.
@@ -218,20 +226,47 @@ sub read_file {
 }
 
 sub writeToLog {
-    my ($logfile, $log_level, $message) = @_;
+    my ($log_level, $message) = @_;
+    return 1 if ($log_level < $log_threshold);
 
-    return 1 unless ($log_level);
+    if ($log_file eq "syslog") {
+        syslog($log_level, $message);
+        return 1;
+    }
+
     my $timestamp = strftime "%m/%d/%Y %H/%M/%S", localtime;
-    open(LD, ">>$logfile");
 
-    print LD "$timestamp: $message\n";
-    close(LD);
+    if ($log_file eq "stderr") {
+        print STDERR "$timestamp: $message\n";
+        return 1;
+    }
+
+    open(my $fh, ">>", $log_file) or return 0;
+    print $fh "$timestamp: $message\n";
+    close($fh);
+
+    return 1;
 }
 
-help() if ( !defined($ARGV[0]) or $ARGV[0] eq '-h' or $ARGV[0] eq '--help' );
-version($version) if ( $ARGV[0] eq '-v' or $ARGV[0] eq '--version' );
+sub setLogFile {
+    my ($new_log_file) = @_;
+    openlog($prog_name, "ndelay,pid", LOG_DAEMON)
+        if ($new_log_file eq "syslog");
+    $log_file = $new_log_file;
+}
 
-my $fallback_logfile = '/tmp/openssh-ldap-publickey.log';
+local $SIG{__DIE__} = sub {
+    writeToLog(LOG_ERR, join(" ", @_));
+    exit(1);
+};
+
+GetOptions(
+    "log=s"     => sub { setLogFile($_[1]) },
+    "help|h"    => sub { help(0) },
+    "version|v" => sub { version($version) },
+);
+help(2) unless @ARGV;
+
 my $configuration_file;
 
 my @configuration_files = qw(
@@ -249,8 +284,7 @@ for my $file ( @configuration_files ) {
 }
 if ( ! $configuration_file ) {
 	my $error = "One of configuration files " . join( ", ", @configuration_files ) . " must be a readable file";
-	writeToLog($fallback_logfile, 1, $error);
-	die($error."!\n");
+	die("$error!");
 }
 
 my $conf = parse_config($configuration_file);
@@ -261,20 +295,21 @@ unless (
 	exists($conf->{'uri'}) && length($conf->{'uri'})
 ) {
 	my $error = "Missing one or more mandatory config settings: base and/or uri";
-	writeToLog($fallback_logfile, 1, $error);
-	die("$error".!"\n");
+	die("$error!");
 }
 
 
-my $log_level = $conf->{'openssh_ldap_loglevel'};
-my $logfile = $conf->{'openssh_ldap_logfile'} || $fallback_logfile;
+$log_threshold = $conf->{'openssh_ldap_loglevel'} ? LOG_DEBUG : LOG_ERR
+    if exists($conf->{'openssh_ldap_loglevel'});
+setLogFile($conf->{'openssh_ldap_logfile'})
+    if $conf->{'openssh_ldap_logfile'};
 my $timeout = $conf->{'timeout'} || 10;
 my $nss_base = $conf->{'nss_base'} || "";
 my $base_passwd = $conf->{'base_passwd'} || [ { base_passwd => $nss_base .$conf->{'base'}, scope => undef } ];
 my ($mesg, $final_filter);
 $conf = check_credentials($conf, $secret_file);
 
-writeToLog($logfile, $log_level, "Connecting to ldap server $conf->{'uri'} with timeout $timeout");
+writeToLog(LOG_DEBUG, "Connecting to ldap server $conf->{'uri'} with timeout $timeout");
 
 my $ldap = Net::LDAP->new(
     $conf->{'uri'},
@@ -295,13 +330,13 @@ if (
 	exists($conf->{'binddn'}) && length($conf->{'binddn'}) &&
 	exists($conf->{'bindpw'})
 ) {
-    writeToLog($logfile, $log_level, "Try to bind with user $conf->{'binddn'}");
+    writeToLog(LOG_DEBUG, "Try to bind with user $conf->{'binddn'}");
     $ldap->bind(
         $conf->{'binddn'},
         password => $conf->{'bindpw'}
     );
 } else {
-    writeToLog($logfile, $log_level, "Try an anonymous bind");
+    writeToLog(LOG_DEBUG, "Try an anonymous bind");
     $ldap->bind or die("$@");
 }
 
@@ -316,7 +351,7 @@ if ( $conf->{'pam_filter'} ){
 }
 
 foreach my $entity (@$base_passwd) {
-    writeToLog($logfile, $log_level, "Searching key for user $user by filter $final_filter in base " . $entity->{'base_passwd'});
+    writeToLog(LOG_DEBUG, "Searching key for user $user by filter $final_filter in base " . $entity->{'base_passwd'});
 
     my %search_params = (
         base => $entity->{'base_passwd'},
@@ -329,11 +364,11 @@ foreach my $entity (@$base_passwd) {
     foreach my $entity ($mesg->entries) {
         my $keys = $entity->{asn}->{attributes}->[0]->{vals};
         foreach my $key (@$keys){
-            writeToLog($logfile, $log_level, "Key found: $key");
+            writeToLog(LOG_DEBUG, "Key found: $key");
             print "$key\n";
         }
     }
 }
 
-writeToLog($logfile, $log_level, "Disconnecting");
+writeToLog(LOG_DEBUG, "Disconnecting");
 $mesg = $ldap->unbind;
