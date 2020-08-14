@@ -58,7 +58,9 @@ if you want store key **ONLY** in ldap, change next lines
 
 ### Configuration:
 
-All configuration is read from **/etc/ldap.conf, /etc/pam_ldap.conf or /etc/libnss-ldap.conf** and currently script uses only those parameters:
+Logging can be configured to go to stderr (default), syslog, or to a file using the **--log** command line option.
+
+All configuration is read from **/etc/ldap.conf, /etc/ldap/ldap.conf, /etc/pam_ldap.conf, /etc/libnss-ldap.conf, or /etc/nslcd.conf** and currently script uses only those parameters:
 
 
 **uri** - uri to ldap     
@@ -69,8 +71,8 @@ All configuration is read from **/etc/ldap.conf, /etc/pam_ldap.conf or /etc/libn
 **timeout** - ldap connection timeout. Default 10.         
 **binddn** - bind dn(*Optional*)      
 **bindpw** - bind dn password(*Optional*)      
-**openssh_ldap_loglevel** - log level. By default the logging is turn off.       
-**openssh_ldap_logfile** - logfile using only when debug is on. Default */tmp/openssh-ldap-publickey.log*.      
+**openssh_ldap_loglevel** - log level. By default the logging is turned off except for error messages.
+**openssh_ldap_logfile** - logfile to use, overrides the logging target from command line.
 
 For more information about this params refer to ldap.conf man page.
 
