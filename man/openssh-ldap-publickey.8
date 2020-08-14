@@ -4,7 +4,7 @@
 .SH NAME
 openssh-ldap-publickey \- Wrapper for OpenSSH to store public keys inside the OpenLDAP entry.
 .SH SYNOPSIS
-openssh-ldap-publickey [-hv] [USERNAME]
+openssh-ldap-publickey [-hv] [--log=[syslog|stderr|filename]] <USERNAME>
 .SH DESCRIPTION
 You create entry for user from OpenLdap and add attribut 'sshPublicKey' with PublicKey to this user. When user try login through the ssh, OpenSSH calls /usr/bin/openssh-ldap-publickey script which in its turn makes request to OpenLdap asking for sshPublicKey attribute value.
 
@@ -16,11 +16,14 @@ ssh-client -> ssh-server -> openssh-ldap-publickey -> openldap server -> openlda
 Change should be made in sshd_config:
 
 AuthorizedKeysCommand /usr/bin/openssh-ldap-publickey
+# or e.g. /usr/bin/openssh-ldap-publickey --log=syslog %u
 
 AuthorizedKeysCommandRunAs nobody
 
 
 .SH OPTIONS
+.IP "--log=[syslog|stderr|filename]"
+set log target, defaults to stderr
 .IP -v
 print version and exit
 .IP "-h"
